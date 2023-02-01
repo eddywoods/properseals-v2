@@ -1,0 +1,314 @@
+How do i go about with configuring Kannel such that:
+incoming messages come to Kannel and then get forwarded to Mircrosoft APIs which are processed and subsequently the results are sent back to Kannel via a URL that kannel automatically generates for outgoing messages
+
+
+Create a sample kannel configuration and how to setup an SMSC (SMS center) connection
+
+
+Here's a sample Kannel configuration file (kannel.conf) with an SMSC connection setup:
+
+
+group = core
+admin-port = 13000
+admin-password = secret
+log-file = "/var/log/kannel/kannel.log"
+
+group = smsc
+smsc = dummy
+smsc-id = dummy-smsc
+dummy-status-report-mask = 15
+dummy-receive-msg-mask = 15
+
+group = modems
+id = modem1
+name = "Modem 1"
+port = /dev/ttyUSB0
+my-number = +12023041208
+speed = 115200
+smsc = dummy-smsc
+
+group = sendsms-user
+username = test
+password = test
+
+group = smsbox
+bearerbox-host = localhost
+sendsms-port = 13013
+global-sender = 13013
+
+
+
+
+Explanation:
+
+group = core: This section sets up the core configuration options for Kannel.
+admin-port and admin-password: This sets the port and password for the Kannel administrative interface.
+log-file: This sets the location of the Kannel log file.
+group = smsc: This section sets up the configuration for the SMS center connection.
+smsc: This sets the type of SMSC connection. In this example, it's set to dummy, which means that Kannel will simulate an SMSC connection for testing purposes.
+smsc-id: This sets the unique identifier for the SMSC connection.
+dummy-status-report-mask and dummy-receive-msg-mask: These options are specific to the dummy SMSC and set the type of messages that it will receive and generate.
+group = modems: This section sets up the configuration for a modem connection.
+id, name, port, my-number, speed, and smsc: These options set the identifier, name, port, phone number, speed, and SMSC connection for the modem.
+group = sendsms-user: This section sets up the credentials for sending SMS messages.
+username and password: This sets the username and password for sending SMS messages.
+group = smsbox: This section sets up the configuration for the SMS box, which is responsible for receiving and forwarding SMS messages.
+bearerbox-host: This sets the hostname or IP address of the machine running the bearerbox.
+sendsms-port and global-sender: These options set the port for sending SMS messages and the global sender number, respectively.
+
+
+
+
+
+
+
+How do i go about with configuring Kannel such that:
+incoming messages come to Kannel and then get forwarded to an api from another organization which are processed and subsequently the results are sent back to Kannel via a URL that kannel automatically generates for outgoing messages
+
+
+
+Here's how you can configure Kannel to forward incoming messages to an API from another organization and send the results back to Kannel via an automatically generated URL:
+
+Set up a Kannel instance and configure it to receive incoming SMS messages.
+
+Create a script or program that formats the incoming messages in a way that the API from the other organization can understand and process.
+
+Call the API from the other organization using the script or program and retrieve the results.
+
+Use the Kannel API to send the results back to Kannel and forward them to the recipient.
+
+Here's an example in Python:
+
+
+
+import requests
+
+# API endpoint from the other organization
+api_endpoint = "https://api.example.com/process"
+
+# Kannel incoming message
+incoming_message = "Hello, I need assistance."
+
+# Prepare the API request header
+headers = {
+    'Content-Type': 'application/json'
+}
+
+# Prepare the API request body
+data = {
+    "message": incoming_message
+}
+
+# Make the API request
+response = requests.post(api_endpoint, headers=headers, data=json.dumps(data))
+
+# Check if the API request was successful
+if response.status_code == 200:
+    # Parse the API response
+    api_response = response.json()
+
+    # Get the processed message from the API response
+    processed_message = api_response['message']
+
+    # Use Kannel API to send the processed message back to Kannel
+    # ...
+
+else:
+    # Log the error
+    # ...
+
+
+
+
+
+
+How do i deploy the above on ubuntu server using nginx
+
+
+
+
+Here are the steps to deploy the above script on an Ubuntu server using Nginx:
+
+1. Install Nginx and Python:
+
+sudo apt update
+sudo apt install nginx python3 python3-pip
+
+
+2. Install the requests library:
+pip3 install requests
+
+
+3. Create a new directory to store the script:
+
+mkdir ~/kannel-forwarder
+
+
+4. Create a new script file and paste the code:
+
+nano ~/kannel-forwarder/forwarder.py
+
+
+5. Make the script executable:
+
+chmod +x ~/kannel-forwarder/forwarder.py
+
+
+6. Configure Nginx to run the script as a reverse proxy. Create a new Nginx server block:
+
+sudo nano /etc/nginx/sites-available/kannel-forwarder
+
+
+7. Add the following content to the Nginx server block:
+
+server {
+    listen 80;
+    server_name forwarder.example.com;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+
+
+8. Create a symbolic link from the Nginx sites-available to sites-enabled directory:
+
+sudo ln -s /etc/nginx/sites-available/kannel-forwarder /etc/nginx/sites-enabled/
+
+
+9. Test the Nginx configuration:
+
+sudo nginx -t
+
+
+10. Restart Nginx if the configuration test is successful:
+
+sudo systemctl restart nginx
+
+
+11. Start the script in the background using a process manager such as screen or nohup:
+
+screen -d -m python3 ~/kannel-forwarder/forwarder.py
+
+
+12. Configure Kannel to send incoming messages to the Nginx server.
+
+With these steps, the script will be running on the Ubuntu server behind Nginx and will be accessible via the domain name forwarder.example.com. Kannel can be configured to send incoming messages to the Nginx server, and the script will forward the messages to the API from the other organization and send the results back to Kannel.
+
+
+
+Create Kannel configuration to send incoming messages to the Nginx server from the above steps
+
+
+Here is a sample Kannel configuration to send incoming messages to the Nginx server:
+
+1. Open the Kannel configuration file:
+
+nano /etc/kannel/kannel.conf
+
+
+2. Add the following configuration:
+
+group = smsbox
+smsbox-port = 13001
+smsbox-route = http://forwarder.example.com
+
+
+3. Save and close the file.
+
+4. Restart Kannel to apply the changes:
+
+sudo systemctl restart kannel
+
+With this configuration, Kannel will listen on port 13001 for incoming messages and will forward them to the Nginx server running on the domain forwarder.example.com. The script running on the server will process the messages and send the results back to Kannel.
+
+
+
+
+Create a bash script for doing all the above
+
+
+Here is a bash script that automates the steps for deploying the forwarder script on an Ubuntu server using Nginx:
+
+
+
+
+#!/bin/bash
+
+# Install Nginx and Python
+sudo apt update
+sudo apt install nginx python3 python3-pip -y
+
+# Install the requests library
+pip3 install requests
+
+# Create a new directory to store the script
+mkdir ~/kannel-forwarder
+
+# Create a new script file and paste the code
+cat > ~/kannel-forwarder/forwarder.py << EOF
+import requests
+from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route('/', methods=['POST'])
+def forward():
+    message = request.form['message']
+    sender = request.form['sender']
+    # Forward the message to the API from the other organization
+    response = requests.post('https://api.example.com/sms', json={'message': message, 'sender': sender})
+    # Return the response from the API
+    return response.text
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8000)
+EOF
+
+# Make the script executable
+chmod +x ~/kannel-forwarder/forwarder.py
+
+# Configure Nginx to run the script as a reverse proxy
+sudo cat > /etc/nginx/sites-available/kannel-forwarder << EOF
+server {
+    listen 80;
+    server_name forwarder.example.com;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+}
+EOF
+
+# Create a symbolic link from the Nginx sites-available to sites-enabled directory
+sudo ln -s /etc/nginx/sites-available/kannel-forwarder /etc/nginx/sites-enabled/
+
+# Test the Nginx configuration
+sudo nginx -t
+
+# Restart Nginx if the configuration test is successful
+sudo systemctl restart nginx
+
+# Start the script in the background using screen
+screen -d -m python3 ~/kannel-forwarder/forwarder.py
+
+# Configure Kannel to send incoming messages to the Nginx server
+sudo cat > /etc/kannel/kannel.conf << EOF
+group = smsbox
+smsbox-port = 13001
+smsbox-route = http://forwarder.example.com
+EOF
+
+# Restart Kannel to apply the changes
+sudo systemctl restart kannel
+
+
+
+
+This script will install Nginx and Python, install the requests library, create the forwarder script, configure Nginx as a reverse proxy, start the script in the background, and configure Kannel to send incoming messages to the Nginx server. You can run this script on an Ubuntu server to automate the deployment process.
+
